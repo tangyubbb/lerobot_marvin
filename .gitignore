@@ -38,7 +38,6 @@ venv.bak/
 .agents
 .claude
 .codex
-docs/
 
 # IDEs
 .vscode/
@@ -101,12 +100,23 @@ reset_arms copy.py
 debug_marvin_teleoperation.py
 check_dataset_integrity.py
 visualize_dataset.py
+test_*.py
+demo_*.py
 
 # ==================================================
 # Project-specific: Redundant documentation
 # ==================================================
-# Keep only official docs in docs/ directory
-# Remove top-level duplicates and fix notes
+# Keep only official docs:
+# - README.md
+# - MARVIN_README.md
+# - CONTRIBUTING.md
+# - CLAUDE.md
+# - LICENSE
+# - SECURITY.md
+# - docs/marvin_data_collection_flow.md
+# - docs/marvin_force_feedback.md
+
+# Remove top-level duplicates and debug notes
 MARVIN_ETHERCAT_FIX.md
 MARVIN_COMPLETE_FIX.md
 MARVIN_COMPLETION_SUMMARY.md
@@ -117,14 +127,16 @@ FIXES_SUMMARY.md
 dataset_report.md
 AI_POLICY.md
 AGENTS.md
+*_NOTES.md
+*_TODO.md
+*_DEBUG.md
 
-# Keep these official docs:
-# - README.md
-# - CONTRIBUTING.md
-# - CLAUDE.md
-# - docs/marvin_data_collection_flow.md
-# - docs/marvin_force_feedback.md
-# - docs/README.md
+# Temporary text files
+using.txt
+using.zip
+using101.txt
+camera_set.txt
+*.txt.bak
 
 # ==================================================
 # Robot-specific
@@ -144,13 +156,6 @@ outputs/
 checkpoints/
 runs/
 mlruns/
-docker/
-benchmarks/
-media/ 
-scripts/
-CLAUDE.md
-CONTRIBUTING.md
-
 
 # HuggingFace cache (optional - uncomment if needed)
 # .cache/
@@ -164,3 +169,8 @@ CONTRIBUTING.md
 *.swn
 .~lock.*
 Thumbs.db
+benchmarks/
+docker/
+docs/
+script/
+media/
