@@ -1,0 +1,415 @@
+
+
+sudo udevadm control --reload-rules &   sudo udevadm trigger
+
+{up_cam: {type: opencv, index_or_path: /dev/video14, height: 480,width: 640, fps: 30}, down_cam: {type: opencv, index_or_path: /dev/video6, width: 640, height: 480, fps: 30,fourcc: YUYV, backend: 200}, top_cam: {type: opencv, index_or_path: /dev/video18, width: 640, height: 480, fps: 30}, top_close: {type: opencv, index_or_path: /dev/video20, width: 640, height: 480, fps: 30}}"
+
+lerobot-teleoperate \
+    --robot.type=marvin \
+    --robot.ip=192.168.1.190 \
+    --robot.use_arm=AB \
+    --robot.use_gripper=true \
+    --robot.cameras="{up_cam: {type: opencv, index_or_path: /dev/video14, height: 480,width: 640, fps: 30}, down_cam: {type: opencv, index_or_path: /dev/video6, width: 640, height: 480, fps: 30,fourcc: YUYV, backend: 200}, top_cam: {type: opencv, index_or_path: /dev/video18, width: 640, height: 480, fps: 30}, top_close: {type: opencv, index_or_path: /dev/video20, width: 640, height: 480, fps: 30}}" \
+    --robot.left_gripper_id=0x01 \
+    --robot.left_gripper_master_id=0x11 \
+    --robot.right_gripper_id=0x02 \
+    --robot.right_gripper_master_id=0x12 \
+    --teleop.type=marvin_leader \
+    --teleop.ip=192.168.1.190 \
+    --teleop.use_arm=AB \
+    --display_data=true
+
+    
+lerobot-teleoperate \
+    --robot.type=marvin \
+    --robot.ip=192.168.1.190 \
+    --robot.use_arm=AB \
+    --robot.use_gripper=true \
+    --robot.cameras="{up_cam: {type: opencv, index_or_path: /dev/cam_up, height: 480,width: 640, fps: 30}, down_cam: {type: opencv, index_or_path: /dev/cam_down, width: 640, height: 480, fps: 30,fourcc: YUYV, backend: 200}, top_cam: {type: opencv, index_or_path: /dev/cam_top, width: 640, height: 480, fps: 30}}" \
+    --robot.left_gripper_id=0x01 \
+    --robot.left_gripper_master_id=0x11 \
+    --robot.right_gripper_id=0x02 \
+    --robot.right_gripper_master_id=0x12 \
+    --teleop.type=marvin_leader \
+    --teleop.ip=192.168.1.190 \
+    --teleop.use_arm=AB \
+    --display_data=true
+
+lerobot-teleoperate \
+    --robot.type=marvin \
+    --robot.ip=192.168.1.190 \
+    --robot.use_arm=AB \
+    --robot.use_gripper=true \
+    --robot.left_gripper_id=0x01 \
+    --robot.left_gripper_master_id=0x11 \
+    --robot.right_gripper_id=0x02 \
+    --robot.right_gripper_master_id=0x12 \
+    --teleop.type=marvin_leader \
+    --teleop.ip=192.168.1.190 \
+    --teleop.use_arm=AB  
+
+测试录制带有力的数据
+
+lerobot-record \
+    --robot.type=marvin \
+    --robot.ip=192.168.1.190 \
+    --robot.use_arm=AB \
+    --robot.use_force_feedback=true \
+    --robot.force_feedback_types='["joint_vel", "joint_torque", "cart_force", "joint_force"]' \
+    --robot.use_gripper=true \
+    --robot.cameras="{up_cam: {type: opencv, index_or_path: /dev/video14, height: 480,width: 640, fps: 30}, down_cam: {type: opencv, index_or_path: /dev/video18, width: 640, height: 480, fps: 30,fourcc: YUYV, backend: 200}, top_cam: {type: opencv, index_or_path: /dev/video0, width: 640, height: 480, fps: 30}, top_close: {type: opencv, index_or_path: /dev/video20, width: 640, height: 480, fps: 30}}" \
+    --teleop.type=marvin_leader \
+    --teleop.ip=192.168.1.190 \
+    --teleop.use_arm=AB \
+    --dataset.repo_id=hukewei/peg_optical_module_0630_force \
+    --dataset.reset_time_s=8 \
+    --dataset.num_episodes=10 \
+    --dataset.episode_time_s=120 \
+    --dataset.push_to_hub=false \
+    --dataset.single_task="peg_optical_module" \
+    --dataset.streaming_encoding=true \
+    --dataset.root=/home/marvin/.cache/huggingface/lerobot/hukewei/peg_optical_module_0630_force \
+    --resume=true
+
+
+lerobot-record \
+    --robot.type=marvin \
+    --robot.ip=192.168.1.190 \
+    --robot.use_arm=AB \
+    --robot.use_gripper=true \
+    --robot.cameras="{up_cam: {type: opencv, index_or_path: /dev/video14, height: 480,width: 640, fps: 30}, down_cam: {type: opencv, index_or_path: /dev/video6, width: 640, height: 480, fps: 30,fourcc: YUYV, backend: 200}, top_cam: {type: opencv, index_or_path: /dev/video18, width: 640, height: 480, fps: 30}, top_close: {type: opencv, index_or_path: /dev/video20, width: 640, height: 480, fps: 30}}" \
+    --teleop.type=marvin_leader \
+    --teleop.ip=192.168.1.190 \
+    --teleop.use_arm=AB \
+    --dataset.repo_id=hukewei/peg_optical_module_0630_no_force \
+    --dataset.reset_time_s=8 \
+    --dataset.num_episodes=10 \
+    --dataset.episode_time_s=120 \
+    --dataset.push_to_hub=false \
+    --dataset.single_task="peg_optical_module" \
+    --dataset.streaming_encoding=true
+    
+lerobot-dataset-viz \
+    --repo-id hukewei/peg_optical_module_0630_force \
+    --episode-index 0
+
+遥操作
+
+0623  数据采集 光模块
+
+lerobot-record \
+    --robot.type=marvin \
+    --robot.ip=192.168.1.190 \
+    --robot.use_arm=AB \
+    --robot.use_gripper=true \
+    --robot.cameras="{up_cam: {type: opencv, index_or_path: /dev/cam_up, height: 480,width: 640, fps: 30}, down_cam: {type: opencv, index_or_path: /dev/cam_down, width: 640, height: 480, fps: 30,fourcc: YUYV, backend: 200}, top_cam: {type: opencv, index_or_path: /dev/cam_top, width: 640, height: 480, fps: 30}}" \
+    --teleop.type=marvin_leader \
+    --teleop.ip=192.168.1.190 \
+    --teleop.use_arm=AB \
+    --dataset.repo_id=hukewei/peg_optical_module_0623 \
+    --dataset.reset_time_s=8 \
+    --dataset.num_episodes=10 \
+    --dataset.episode_time_s=120 \
+    --dataset.push_to_hub=false \
+    --dataset.single_task="peg_optical_module" \
+    --dataset.streaming_encoding=true  \
+    --dataset.root=/home/marvin/.cache/huggingface/lerobot/hukewei/peg_optical_module_0623 \
+    --resume=true
+
+训练
+/home/zzx23457/act_train_data/peg_optical_module_0623
+
+lerobot-train \
+  --dataset.repo_id=hukewei/peg_optical_module_0623 \
+  --dataset.root=/home/zzx23457/act_train_data/peg_optical_module_0623 \
+  --policy.type=act \
+  --output_dir=/home/zzx23457/act_train_data/outputs/act_peg_optical_module_0623 \
+  --job_name=act_peg_optical_module_0623 \
+  --policy.device=cuda \
+  --wandb.enable=false \
+  --policy.repo_id=hukewei/act_peg_optical_module_0623 \
+  --batch_size=8 \
+  --policy.use_amp=true \
+  --steps=200000
+
+
+
+cesh 0629
+
+lerobot-record \
+    --robot.type=marvin \
+    --robot.control_mode=impedance \
+    --robot.ip=192.168.1.190 \
+    --robot.tool_mass_b=1.04 \
+    --robot.use_arm=AB \
+    --robot.use_gripper=true \
+    --robot.cameras="{up_cam: {type: opencv, index_or_path: /dev/cam_up, height: 480,width: 640, fps: 30}, down_cam: {type: opencv, index_or_path: /dev/cam_down, width: 640, height: 480, fps: 30,fourcc: YUYV, backend: 200}, top_cam: {type: opencv, index_or_path: /dev/cam_top, width: 640, height: 480, fps: 30}}" \
+    --policy.path=/home/marvin/checkpoints/act_peg_optical_module_0623_800/checkpoints/300000/pretrained_model \
+    --dataset.repo_id=hukewei/eval_act_peg_optical_module_0624 \
+    --dataset.num_episodes=20 \
+    --dataset.push_to_hub=false \
+    --dataset.episode_time_s=600 \
+    --dataset.single_task="peg_optical_module" \
+    --dataset.streaming_encoding=true \
+    --dataset.encoder_threads=2 \
+    --dataset.root=/home/marvin/.cache/huggingface/lerobot/hukewei/eval_act_peg_optical_module_0624 \
+    --resume=true 
+
+
+lerobot-record \
+    --robot.type=marvin \
+    --robot.control_mode=position \
+    --robot.ip=192.168.1.190 \
+    --robot.use_arm=AB \
+    --robot.use_gripper=true \
+    --robot.cameras="{up_cam: {type: opencv, index_or_path: /dev/cam_up, height: 480,width: 640, fps: 30}, down_cam: {type: opencv, index_or_path: /dev/cam_down, width: 640, height: 480, fps: 30,fourcc: YUYV, backend: 200}, top_cam: {type: opencv, index_or_path: /dev/cam_top, width: 640, height: 480, fps: 30}}" \
+    --policy.path=/home/marvin/checkpoints/act_peg_optical_module_0623_800/checkpoints/300000/pretrained_model \
+    --dataset.repo_id=hukewei/eval_act_peg_optical_module_0624 \
+    --dataset.num_episodes=20 \
+    --dataset.push_to_hub=false \
+    --dataset.episode_time_s=600 \
+    --dataset.single_task="peg_optical_module" \
+    --dataset.streaming_encoding=true \
+    --dataset.encoder_threads=2 \
+    --dataset.root=/home/marvin/.cache/huggingface/lerobot/hukewei/eval_act_peg_optical_module_0624 \
+    --resume=true 
+
+0616  数据采集 光模块
+
+lerobot-record \
+    --robot.type=marvin \
+    --robot.ip=192.168.1.190 \
+    --robot.use_arm=AB \
+    --robot.use_gripper=true \
+    --robot.cameras="{up_cam: {type: opencv, index_or_path: /dev/cam_up, height: 480,width: 640, fps: 30}, down_cam: {type: opencv, index_or_path: /dev/cam_down, width: 640, height: 480, fps: 30,fourcc: YUYV, backend: 200}, top_cam: {type: opencv, index_or_path: /dev/cam_top, width: 640, height: 480, fps: 30}}" \
+    --teleop.type=marvin_leader \
+    --teleop.ip=192.168.1.190 \
+    --teleop.use_arm=AB \
+    --dataset.repo_id=hukewei/peg_optical_module_0616tets \
+    --dataset.reset_time_s=8 \
+    --dataset.num_episodes=10 \
+    --dataset.episode_time_s=120 \
+    --dataset.push_to_hub=false \
+    --dataset.single_task="peg_optical_module" \
+    --dataset.streaming_encoding=true  \
+    --dataset.root=/home/marvin/.cache/huggingface/lerobot/hukewei/peg_optical_module_0616 \
+    --resume=true
+
+lerobot-train \
+  --dataset.repo_id=hukewei/peg_optical_module_0616 \
+  --dataset.root=/home/kewei/lerobot/train_data/peg_optical_module_0616 \
+  --policy.type=act \
+  --output_dir=outputs/train/act_peg_optical_module_0616 \
+  --job_name=act_peg_optical_module_0616 \
+  --policy.device=cuda \
+  --wandb.enable=false \
+  --policy.repo_id=hukewei/act_peg_optical_module_0616 \
+  --batch_size=8 \
+  --policy.use_amp=true
+
+/home/marvin/outputs/train/act_peg_optical_module_0616/checkpoints/020000/pretrained_model
+
+lerobot-record \
+    --robot.type=marvin \
+    --robot.ip=192.168.1.190 \
+    --robot.use_arm=AB \
+    --robot.use_gripper=true \
+    --robot.cameras="{up_cam: {type: opencv, index_or_path: /dev/cam_up, height: 480,width: 640, fps: 30}, down_cam: {type: opencv, index_or_path: /dev/cam_down, width: 640, height: 480, fps: 30,fourcc: YUYV, backend: 200}, top_cam: {type: opencv, index_or_path: /dev/cam_top, width: 640, height: 480, fps: 30}}" \
+    --policy.path=/home/marvin/train_out/act_peg_optical_module_0616_100/100000/pretrained_model \
+    --dataset.repo_id=hukewei/eval_act_peg_optical_module_0616 \
+    --dataset.num_episodes=10 \
+    --dataset.push_to_hub=false \
+    --dataset.single_task="peg_optical_module" \
+    --dataset.streaming_encoding=true \
+    --dataset.encoder_threads=2 \
+    --dataset.root= \
+    --resume=true 
+
+0612  数据采集 光模块
+
+lerobot-record \
+    --robot.type=marvin \
+    --robot.ip=192.168.1.190 \
+    --robot.use_arm=AB \
+    --robot.use_gripper=true \
+    --robot.cameras="{up_cam: {type: opencv, index_or_path: /dev/cam_up, width: 640, height: 480, fps: 15},down_cam: {type: opencv, index_or_path: /dev/cam_down, width: 640, height: 480, fps: 15}}" \
+    --teleop.type=marvin_leader \
+    --teleop.ip=192.168.1.190 \
+    --teleop.use_arm=AB \
+    --dataset.repo_id=hukewei/peg_optical_module_0612 \
+    --dataset.reset_time_s=8 \
+    --dataset.num_episodes=10 \
+    --dataset.episode_time_s=120 \
+    --dataset.push_to_hub=false \
+    --dataset.single_task="peg_optical_module" \
+    --dataset.streaming_encoding=true  \
+    --dataset.root=/home/marvin/.cache/huggingface/lerobot/hukewei/peg_optical_module_0612 \
+    --resume=true
+
+
+训练
+
+lerobot-train \
+  --dataset.repo_id=hukewei/peg_optical_module_0612 \
+  --dataset.root=/home/kewei/lerobot/train_data/peg_optical_module_0612 \
+  --policy.type=act \
+  --output_dir=outputs/train/act_peg_optical_module_0612 \
+  --job_name=act_peg_optical_module_0612 \
+  --policy.device=cuda \
+  --wandb.enable=false \
+  --policy.repo_id=hukewei/act_peg_optical_module_0612 \
+  --batch_size=2 \
+  --policy.use_amp=true 
+
+跑测试
+
+lerobot-record \
+    --robot.type=marvin \
+    --robot.ip=192.168.1.190 \
+    --robot.use_arm=AB \
+    --robot.use_gripper=true \
+    --robot.cameras="{up_cam: {type: opencv, index_or_path: /dev/cam_up, width: 640, height: 480, fps: 30},down_cam: {type: opencv, index_or_path: /dev/cam_down, width: 640, height: 480, fps: 30}}" \
+    --policy.path=/home/marvin/train_out/act_peg_optical_module_0612/checkpoints/100000/pretrained_model \
+    --dataset.repo_id=hukewei/eval_act_peg_optical_module_0612 \
+    --dataset.num_episodes=10 \
+    --dataset.push_to_hub=false \
+    --dataset.single_task="peg_optical_module" \
+    --dataset.streaming_encoding=true \
+    --dataset.encoder_threads=2 \
+    --dataset.root= \
+    --resume=true 
+
+
+0609  数据采集 光模块 修改初始位置的
+
+lerobot-record \
+    --robot.type=marvin \
+    --robot.ip=192.168.1.190 \
+    --robot.use_arm=AB \
+    --robot.use_gripper=true \
+    --robot.cameras="{up_cam: {type: opencv, index_or_path: /dev/cam_up, width: 640, height: 480, fps: 30},down_cam: {type: opencv, index_or_path: /dev/cam_down, width: 640, height: 480, fps: 30}}" \
+    --teleop.type=marvin_leader \
+    --teleop.ip=192.168.1.190 \
+    --teleop.use_arm=AB \
+    --dataset.repo_id=hukewei/peg_optical_module_0611 \
+    --dataset.reset_time_s=8 \
+    --dataset.num_episodes=10 \
+    --dataset.episode_time_s=120 \
+    --dataset.push_to_hub=false \
+    --dataset.single_task="peg_optical_module" \
+    --dataset.streaming_encoding=true  \
+    --dataset.root=/home/marvin/.cache/huggingface/lerobot/hukewei/peg_optical_module_0610 \
+    --resume=true
+
+0608 训练 45 条
+
+lerobot-train \
+  --dataset.repo_id=hukewei/peg_optical_module_0608_45 \
+  --dataset.root=/home/kewei/lerobot/train_data/peg_optical_module_0608_45 \
+  --policy.type=act \
+  --output_dir=outputs/train/peg_optical_module_0608_45 \
+  --job_name=act_peg_optical_module_0608_45 \
+  --policy.device=cuda \
+  --wandb.enable=true \
+  --policy.repo_id=hukewei/act_peg_optical_module_0608_45 \
+  --batch_size=8 \
+  --policy.use_amp=true 
+
+测试
+
+lerobot-record \
+    --robot.type=marvin \
+    --robot.ip=192.168.1.190 \
+    --robot.use_arm=AB \
+    --robot.use_gripper=true \
+    --robot.cameras="{up_cam: {type: opencv, index_or_path: /dev/cam_up, width: 640, height: 480, fps: 30},down_cam: {type: opencv, index_or_path: /dev/cam_down, width: 640, height: 480, fps: 30}}" \
+    --policy.path=/home/marvin/train_out/peg_optical_module_0608_45/checkpoints/100000/pretrained_model \
+    --dataset.repo_id=hukewei/eval_peg_optical_module_0608_45 \
+    --dataset.num_episodes=10 \
+    --dataset.push_to_hub=false \
+    --dataset.single_task="pick and place the yellow cube" \
+    --dataset.streaming_encoding=true \
+    --dataset.encoder_threads=2 \
+    --dataset.root= \
+    --resume=true 
+
+
+0608 数据采集 光模块
+
+lerobot-record \
+    --robot.type=marvin \
+    --robot.ip=192.168.1.190 \
+    --robot.use_arm=AB \
+    --robot.use_gripper=true \
+    --robot.cameras="{up_cam: {type: opencv, index_or_path: /dev/cam_up, width: 640, height: 480, fps: 30},down_cam: {type: opencv, index_or_path: /dev/cam_down, width: 640, height: 480, fps: 30}}" \
+    --teleop.type=marvin_leader \
+    --teleop.ip=192.168.1.190 \
+    --teleop.use_arm=AB \
+    --dataset.repo_id=hukewei/peg_optical_module_0608 \
+    --dataset.reset_time_s=8 \
+    --dataset.num_episodes=10 \
+    --dataset.episode_time_s=120 \
+    --dataset.push_to_hub=false \
+    --dataset.single_task="peg_optical_module" \
+    --dataset.streaming_encoding=true  \
+    --dataset.root=/home/marvin/.cache/huggingface/lerobot/hukewei/peg_optical_module_0608 \
+    --resume=true
+
+
+
+
+
+110 权重测试
+  lerobot-record \
+    --robot.type=marvin \
+    --robot.ip=192.168.1.190 \
+    --robot.use_arm=AB \
+    --robot.use_gripper=true \
+    --robot.cameras="{front_cam: {type: opencv, index_or_path: /dev/cam_front, width: 640, height: 480, fps: 30},camera2: {type: opencv, index_or_path: /dev/cam_top, width: 640, height: 480, fps: 30}}" \
+    --policy.path=/home/marvin/lerobot_marvin/outputs/captured_images/train/act_marvin_demo_110/checkpoints/100000/pretrained_model \
+    --dataset.repo_id=hukewei/eval_marvin_demo_110 \
+    --dataset.num_episodes=10 \
+    --dataset.push_to_hub=false \
+    --dataset.single_task="pick and place the yellow cube" \
+    --dataset.streaming_encoding=true \
+    --dataset.encoder_threads=2 \
+    --dataset.root=/home/marvin/.cache/huggingface/lerobot/hukewei/eval_marvin_demo \
+    --resume=true 
+
+
+---------------在4090 训练 等会儿直接推理
+http://192.168.1.25:8888/lab
+
+lerobot-train \
+  --dataset.repo_id=hukewei/marvin_demo_60 \
+  --dataset.root=/home/kewei/lerobot/train_data/marvin_demo_60 \
+  --policy.type=act \
+  --output_dir=outputs/train/marvin_demo_60 \
+  --job_name=act_marvin_demo_60 \
+  --policy.device=cuda \
+  --wandb.enable=true \
+  --policy.repo_id=hukewei/act_marvin_demo_60 \
+  --batch_size=4 \
+  --policy.use_amp=true 
+
+0604 数据采集
+
+lerobot-record \
+    --robot.type=marvin \
+    --robot.ip=192.168.1.190 \
+    --robot.use_arm=AB \
+    --robot.use_gripper=true \
+    --robot.cameras="{front_cam: {type: opencv, index_or_path: /dev/cam_front, width: 640, height: 480, fps: 30},camera2: {type: opencv, index_or_path: /dev/cam_top, width: 640, height: 480, fps: 30}}" \
+    --teleop.type=marvin_leader \
+    --teleop.ip=192.168.1.190 \
+    --teleop.use_arm=AB \
+    --dataset.repo_id=hukewei/marvin_demo \
+    --dataset.reset_time_s=5 \
+    --dataset.num_episodes=10 \
+    --dataset.episode_time_s=120 \
+    --dataset.push_to_hub=false \
+    --dataset.single_task="pick and place the yellow cube" \
+    --dataset.root=/home/marvin/.cache/huggingface/lerobot/hukewei/marvin_demo \
+    --resume=true
+
+

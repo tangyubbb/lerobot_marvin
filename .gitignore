@@ -1,0 +1,166 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+pip-wheel-metadata/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+using.txt
+using.zip
+using101.txt
+camera_set.txt
+
+# Virtual environments
+.env
+.venv
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+.agents
+.claude
+.codex
+docs/
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# PyTorch
+*.pth
+*.pt
+*.ckpt
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+.mypy_cache/
+.dmypy.json
+dmypy.json
+
+# Test outputs
+tests/outputs/
+tests/artifacts/
+
+# Datasets and data
+data/
+datasets/
+*.hdf5
+*.h5
+*.zarr
+*.parquet
+
+# Logs
+*.log
+logs/
+wandb/
+*.txt.bak
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+
+# ==================================================
+# Project-specific: Test scripts
+# ==================================================
+# Top-level test scripts (not in tests/ directory)
+see_camera.py
+see_rs.py
+see_2camera.py
+set_motor.py
+reset_arms.py
+reset_arms copy.py
+debug_marvin_teleoperation.py
+check_dataset_integrity.py
+visualize_dataset.py
+
+# ==================================================
+# Project-specific: Redundant documentation
+# ==================================================
+# Keep only official docs in docs/ directory
+# Remove top-level duplicates and fix notes
+MARVIN_ETHERCAT_FIX.md
+MARVIN_COMPLETE_FIX.md
+MARVIN_COMPLETION_SUMMARY.md
+MARVIN_TELEOPERATION_FIX.md
+MARVIN_DEBUG_GUIDE.md
+MARVIN_QUICK_REFERENCE.md
+FIXES_SUMMARY.md
+dataset_report.md
+AI_POLICY.md
+AGENTS.md
+
+# Keep these official docs:
+# - README.md
+# - CONTRIBUTING.md
+# - CLAUDE.md
+# - docs/marvin_data_collection_flow.md
+# - docs/marvin_force_feedback.md
+# - docs/README.md
+
+# ==================================================
+# Robot-specific
+# ==================================================
+# Marvin SDK compiled libraries (if any)
+*.dll
+*.dylib
+
+# Camera calibration files (if sensitive)
+# calibration/*.yaml
+
+# ==================================================
+# Machine learning
+# ==================================================
+# Model checkpoints (keep only released models)
+outputs/
+checkpoints/
+runs/
+mlruns/
+docker/
+benchmarks/
+media/ 
+scripts/
+CLAUDE.md
+CONTRIBUTING.md
+
+
+# HuggingFace cache (optional - uncomment if needed)
+# .cache/
+# huggingface/
+
+# ==================================================
+# System and editor
+# ==================================================
+.python-version
+*.bak
+*.swn
+.~lock.*
+Thumbs.db
