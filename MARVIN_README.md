@@ -1,7 +1,7 @@
 # Marvin机器人LeRobot集成完整指南
 
 > **Marvin双臂7自由度协作机器人的LeRobot集成文档**  
-> 版本：v1.0 | 更新时间：2026-06-04
+> 版本：v1.1 | 更新时间：2026-07-01
 
 ---
 
@@ -171,7 +171,7 @@ gripper.controlMIT(motor_right, K=8.0, D=0.20, target=m2_target, ...)
 
 ## 数据采集
 
-### 命令
+### 基础命令
 
 ```bash
 lerobot-record \
@@ -188,33 +188,74 @@ lerobot-record \
     --dataset.episode_time_s=60 \
     --dataset.reset_time_s=6 \
     --dataset.push_to_hub=false \
-    --dataset.single_task="pick and place the yellow cube"
+    --dataset.single_task="pick and place the yellow cube" \
+    --dataset.streaming_encoding=false
 ```
 
-### 数据采集循环（60Hz）
+**⚠️ 性能优化建议**：
+- `--dataset.streaming_encoding=false` — **强烈推荐**！禁用实时视频编码以避免 CPU 过载导致 EtherCAT 通信失败
+- 降低相机分辨率（如 `320x240`）可进一步减轻 CPU 负载
+- 录制完成后可用 `ffmpeg` 手动编码视频
+
+### 启用力反馈数据采集
+
+```bash
+lerobot-record \
+    --robot.type=marvin \
+    --robot.ip=192.168.1.190 \
+    --robot.use_arm=AB \
+    --robot.use_gripper=true \
+    --robot.use_force_feedback=true \
+    --robot.force_feedback_types='["joint_vel", "joint_torque", "cart_force"]' \
+    --robot.cameras="{front_cam: {type: opencv, index_or_path: /dev/cam_front, width: 640, height: 480, fps: 30}}" \
+    --teleop.type=marvin_leader \
+    --teleop.ip=192.168.1.190 \
+    --teleop.use_arm=AB \
+    --dataset.repo_id=hukewei/marvin_demo_force \
+    --dataset.num_episodes=10 \
+    --dataset.streaming_encoding=false
+```
+
+**力反馈类型说明**：
+- `joint_vel` — 关节速度（deg/s）
+- `joint_torque` — 关节传感器力矩（Nm）
+- `joint_force` — 关节空间外力（Nm）
+- `cart_force` — 末端笛卡尔空间力（Fx, Fy, Fz, Mx, My, Mz）
+
+### 数据采集循环（30Hz）
 
 ```python
 while recording:
-    # 1. 读取机器人状态（Follower）
+    # 1. 读取机器人状态（Follower B臂）
     obs = robot.get_observation()
     # obs = {
-    #   "observation.state": [
-    #     left_joint_1.pos, ..., left_joint_7.pos, left_gripper.pos,
-    #     right_joint_1.pos, ..., right_joint_7.pos, right_gripper.pos
-    #   ],  # 16个值（7+1）×2
-    #   "observation.images.wrist_cam": np.array(shape=(480,640,3)),
-    #   "observation.images.top_cam": np.array(shape=(480,640,3)),
+    #   "joint_1.pos": float,   # B臂关节1位置（度）
+    #   "joint_2.pos": float,
+    #   ...
+    #   "joint_7.pos": float,
+    #   "gripper.pos": float,   # B臂夹爪位置（弧度）
+    #   
+    #   # 如果启用 use_force_feedback=true 和对应的 force_feedback_types:
+    #   "joint_1.vel": float,      # 关节速度
+    #   "joint_1.torque": float,   # 关节力矩
+    #   "joint_1.force": float,    # 关节外力
+    #   "cart_force.fx": float,    # 末端笛卡尔力
+    #   "cart_force.fy": float,
+    #   "cart_force.fz": float,
+    #   "cart_force.mx": float,
+    #   "cart_force.my": float,
+    #   "cart_force.mz": float,
+    #   
+    #   "observation.images.front_cam": np.array(shape=(480,640,3)),
     # }
     
-    # 2. 读取leader动作（人类示教）
+    # 2. 读取leader动作（人类示教的A臂位置）
     action = teleop.get_action()
     # action = {
-    #   "left_joint_1.pos": ..., 
+    #   "joint_1.pos": float,   # A臂关节1位置
     #   ..., 
-    #   "left_gripper.pos": ...,  # A臂当前位置
-    #   "right_joint_1.pos": ..., 
-    #   ..., 
-    #   "right_gripper.pos": ...  # B臂当前位置
+    #   "joint_7.pos": float,
+    #   "gripper.pos": float,   # A臂夹爪位置
     # }
     
     # 3. 执行动作（Follower）
@@ -224,16 +265,18 @@ while recording:
     
     # 4. 保存数据
     dataset.save(obs, action)
-    # 记录：(当前状态, 当前位置) 配对
+    # 记录：(B臂当前状态, A臂当前位置) 配对
 ```
 
 ### 采集到的数据说明
 
-**语义**：
-- `observation`: 当前时刻的状态（B臂的位置）
-- `action`: 当前时刻的目标（A臂的位置，也是B臂应该到达的位置）
+**重要**：Marvin 只记录 **B 臂（Follower）** 的状态和动作，A 臂仅用于示教。
 
-**实际上**：由于CYR模式，B臂实时跟随A臂，所以`observation`和`action`非常接近（微小延迟）。
+**语义**：
+- `observation`: 当前时刻 B 臂的状态（执行臂的位置）
+- `action`: 当前时刻 A 臂的位置（示教目标，也是 B 臂应该到达的位置）
+
+**实际上**：由于 CYR 模式，B 臂实时跟随 A 臂，所以 `observation` 和 `action` 非常接近（微小延迟约 5ms）。
 
 ---
 
@@ -259,16 +302,28 @@ lerobot-train \
 **输入（Observation）**：
 ```python
 {
-    "observation.state": [16个float],  # 双臂关节+夹爪位置
-    "observation.images.wrist_cam": [H, W, 3],
-    "observation.images.top_cam": [H, W, 3],
+    "observation.state": [8个float],  # B臂关节+夹爪位置（不包含力反馈）
+    "observation.images.front_cam": [H, W, 3],
+}
+```
+
+**如果启用力反馈** (`use_force_feedback=true`)：
+```python
+{
+    "observation.state": [8 + N个float],  # 位置 + 力反馈数据
+    # N 取决于 force_feedback_types:
+    # - joint_vel: +7
+    # - joint_torque: +7
+    # - joint_force: +7
+    # - cart_force: +6
+    "observation.images.front_cam": [H, W, 3],
 }
 ```
 
 **输出（Action）**：
 ```python
 {
-    "action": [16个float]  # 双臂关节+夹爪目标位置
+    "action": [8个float]  # B臂关节+夹爪目标位置
 }
 ```
 
@@ -297,32 +352,32 @@ lerobot-record \
 
 **注意**：推理时不需要`--teleop`参数！
 
-### 推理循环（60Hz）
+### 推理循环（30Hz）
 
 ```python
 while evaluating:
-    # 1. 读取当前状态
+    # 1. 读取当前状态（B臂）
     obs = robot.get_observation()
     # obs = {
-    #   "observation.state": [16个float],
-    #   "observation.images.wrist_cam": np.array(...),
-    #   "observation.images.top_cam": np.array(...),
+    #   "joint_1.pos": float,  # B臂位置
+    #   ...
+    #   "joint_7.pos": float,
+    #   "gripper.pos": float,
+    #   "observation.images.front_cam": np.array(...),
     # }
     
     # 2. 模型预测下一步动作
     predicted_action = policy(obs)
     # predicted_action = {
-    #   "left_joint_1.pos": ...,
+    #   "joint_1.pos": float,
     #   ...
-    #   "left_gripper.pos": ...,
-    #   "right_joint_1.pos": ...,
-    #   ...
-    #   "right_gripper.pos": ...,
+    #   "joint_7.pos": float,
+    #   "gripper.pos": float,
     # }
     
     # 3. 执行预测动作
     robot.send_action(predicted_action)
-    # - 机械臂：发送位置命令（position模式，非CYR）
+    # - 机械臂：发送位置命令（position模式或impedance模式，非CYR）
     # - 夹爪：发送目标位置（MIT模式，高刚度）
     
     # 4. 记录评估结果
@@ -352,18 +407,15 @@ def send_action(self, action: dict) -> dict:
             gripper.controlMIT(motor_left, 0.15, 0.15, m1_pos, ...)
             gripper.controlMIT(motor_right, 8.0, 0.20, m2_target, ...)
         else:
-            # 推理模式：从action读取
-            left_target = action["left_gripper.pos"]
-            right_target = action["right_gripper.pos"]
-            gripper.controlMIT(motor_left, 8.0, 0.20, left_target, ...)
-            gripper.controlMIT(motor_right, 8.0, 0.20, right_target, ...)
+            # 推理模式：从action读取（只控制B臂）
+            gripper_target = action["gripper.pos"]
+            gripper.controlMIT(motor_right, 8.0, 0.20, gripper_target, ...)
     
     # ========== 机械臂控制 ==========
     if not already_connected:
-        # 推理模式：发送位置命令
-        for arm in ['A', 'B']:
-            joints = [action[f"{prefix}joint_{i}.pos"] for i in range(1, 8)]
-            sdk.set_joint_cmd_pose(arm=arm, joints=joints)
+        # 推理模式：发送位置命令到B臂
+        joints = [action[f"joint_{i+1}.pos"] for i in range(7)]
+        sdk.set_joint_cmd_pose(arm='B', joints=joints)
         sdk.send_cmd()
     # 遥操作模式：不发送命令（CYR自动处理）
     
@@ -373,6 +425,7 @@ def send_action(self, action: dict) -> dict:
 **关键点**：
 - **遥操作时**：`already_connected=True`，机械臂由CYR控制，夹爪实时读取
 - **推理时**：`already_connected=False`，机械臂和夹爪都从`action`参数读取
+- **只控制 B 臂**：A 臂仅在遥操作时用作示教设备
 
 ---
 
@@ -380,83 +433,141 @@ def send_action(self, action: dict) -> dict:
 
 ### Observation（观测状态）
 
+**默认配置**（`use_force_feedback=false`）：
 ```python
 observation = {
-    # ========== 机械臂状态 ==========
-    "left_joint_1.pos": float,     # 度（°）
-    "left_joint_1.vel": float,     # 度/秒（°/s）
-    "left_joint_1.torque": float,  # Nm
-    "left_joint_2.pos": float,
-    ...
-    "left_joint_7.torque": float,
-    
-    "left_gripper.pos": float,     # 弧度（rad）
-    
-    "right_joint_1.pos": float,
-    ...
-    "right_joint_7.torque": float,
-    
-    "right_gripper.pos": float,
+    # ========== B臂位置（仅位置） ==========
+    "joint_1.pos": float,     # 度（°）
+    "joint_2.pos": float,
+    "joint_3.pos": float,
+    "joint_4.pos": float,
+    "joint_5.pos": float,
+    "joint_6.pos": float,
+    "joint_7.pos": float,
+    "gripper.pos": float,     # 弧度（rad）
     
     # ========== 摄像头图像 ==========
-    "observation.images.wrist_cam": np.ndarray,  # shape=(H, W, 3), dtype=uint8
-    "observation.images.top_cam": np.ndarray,
+    "observation.images.front_cam": np.ndarray,  # shape=(H, W, 3), dtype=uint8
+}
+```
+
+**启用力反馈**（`use_force_feedback=true` + `force_feedback_types=[...]`）：
+```python
+observation = {
+    # ========== B臂位置（始终包含） ==========
+    "joint_1.pos": float,
+    ...
+    "joint_7.pos": float,
+    
+    # ========== 力反馈数据（可选） ==========
+    # 如果 "joint_vel" in force_feedback_types:
+    "joint_1.vel": float,     # 度/秒（°/s）
+    ...
+    "joint_7.vel": float,
+    
+    # 如果 "joint_torque" in force_feedback_types:
+    "joint_1.torque": float,  # Nm
+    ...
+    "joint_7.torque": float,
+    
+    # 如果 "joint_force" in force_feedback_types:
+    "joint_1.force": float,   # Nm（关节空间外力）
+    ...
+    "joint_7.force": float,
+    
+    # 如果 "cart_force" in force_feedback_types:
+    "cart_force.fx": float,   # N（末端笛卡尔力）
+    "cart_force.fy": float,
+    "cart_force.fz": float,
+    "cart_force.mx": float,   # Nm（末端力矩）
+    "cart_force.my": float,
+    "cart_force.mz": float,
+    
+    "gripper.pos": float,
+    
+    # ========== 摄像头图像 ==========
+    "observation.images.front_cam": np.ndarray,
 }
 ```
 
 **总计**：
-- **左臂**：7关节×3（pos/vel/torque）+ 1夹爪 = 22个值
-- **右臂**：7关节×3 + 1夹爪 = 22个值
+- **基础**：7关节位置 + 1夹爪 = 8个值
+- **+ joint_vel**：+7 = 15个值
+- **+ joint_torque**：+7 = 22个值
+- **+ joint_force**：+7 = 29个值
+- **+ cart_force**：+6 = 35个值
 - **摄像头**：N个图像
+
+**重要**：只记录 **B 臂（Follower）** 数据，A 臂仅用于遥操作示教。
 
 ### Action（动作命令）
 
 ```python
 action = {
-    "left_joint_1.pos": float,   # 度（°）
-    "left_joint_2.pos": float,
-    ...
-    "left_joint_7.pos": float,
-    "left_gripper.pos": float,   # 弧度（rad）
-    
-    "right_joint_1.pos": float,
-    ...
-    "right_joint_7.pos": float,
-    "right_gripper.pos": float,
+    "joint_1.pos": float,   # 度（°）
+    "joint_2.pos": float,
+    "joint_3.pos": float,
+    "joint_4.pos": float,
+    "joint_5.pos": float,
+    "joint_6.pos": float,
+    "joint_7.pos": float,
+    "gripper.pos": float,   # 弧度（rad）
 }
 ```
 
 **总计**：
-- **左臂**：7关节 + 1夹爪 = 8个值
-- **右臂**：7关节 + 1夹爪 = 8个值
-- **总共**：16个float
+- **B臂**：7关节 + 1夹爪 = 8个值
+- **只包含位置**，不包含速度和力矩
 
-### observation.state的顺序
+**注意**：
+- 在**遥操作模式**下，`action` 是 A 臂的当前位置（人类示教）
+- 在**推理模式**下，`action` 是模型预测的 B 臂目标位置
 
-在LeRobot的数据集中，`observation.state`是一个一维数组：
+### observation.state 的顺序
 
+在 LeRobot 的数据集中，`observation.state` 是一个一维数组：
+
+**默认配置**（`use_force_feedback=false`）：
 ```python
 observation.state = np.array([
-    left_joint_1.pos,
-    left_joint_2.pos,
-    left_joint_3.pos,
-    left_joint_4.pos,
-    left_joint_5.pos,
-    left_joint_6.pos,
-    left_joint_7.pos,
-    left_gripper.pos,
-    right_joint_1.pos,
-    right_joint_2.pos,
-    right_joint_3.pos,
-    right_joint_4.pos,
-    right_joint_5.pos,
-    right_joint_6.pos,
-    right_joint_7.pos,
-    right_gripper.pos,
-])  # shape=(16,)
+    joint_1.pos,
+    joint_2.pos,
+    joint_3.pos,
+    joint_4.pos,
+    joint_5.pos,
+    joint_6.pos,
+    joint_7.pos,
+    gripper.pos,
+])  # shape=(8,)
 ```
 
-**注意**：只包含位置，不包含速度和力矩。
+**启用所有力反馈**（`force_feedback_types=["joint_vel", "joint_torque", "joint_force", "cart_force"]`）：
+```python
+observation.state = np.array([
+    joint_1.pos,
+    joint_2.pos,
+    ...,
+    joint_7.pos,
+    joint_1.vel,
+    ...,
+    joint_7.vel,
+    joint_1.torque,
+    ...,
+    joint_7.torque,
+    joint_1.force,
+    ...,
+    joint_7.force,
+    cart_force.fx,
+    cart_force.fy,
+    cart_force.fz,
+    cart_force.mx,
+    cart_force.my,
+    cart_force.mz,
+    gripper.pos,
+])  # shape=(35,)
+```
+
+**注意**：只包含 B 臂数据，不包含 A 臂。
 
 ---
 
@@ -615,8 +726,8 @@ from lerobot.teleoperators.marvin_leader import MarvinLeader, MarvinLeaderConfig
 robot = MarvinRobot(MarvinRobotConfig(use_gripper=True))
 leader = MarvinLeader(MarvinLeaderConfig())
 
-print(robot.action_features)   # 应包含 'left_gripper.pos'
-print(leader.action_features)  # 应包含 'left_gripper.pos'
+print(robot.action_features)   # 应包含 'gripper.pos'
+print(leader.action_features)  # 应包含 'gripper.pos'
 ```
 
 ### Q4: 推理时机器人不动？
@@ -634,13 +745,87 @@ print(leader.action_features)  # 应包含 'left_gripper.pos'
 
 这是SDK底层C++库打印的，无法在Python层关闭。不影响功能，可以忽略。
 
-### Q6: 帧率低于60Hz？
+### Q6: 帧率低于30Hz？
 
 **优化**：
 1. 减少摄像头数量或降低分辨率
 2. 关闭`--display_data`
 3. 确保网络延迟<5ms
 4. 检查CPU/GPU负载
+
+### Q7: B臂失控/EtherCAT通信失败？⚠️
+
+**症状**：
+- B臂突然不受控制，位置无法追踪
+- 日志中出现：
+  ```
+  [ERRO] Arm1: Domain WC changed to 21
+  [ERRO] Arm1: Domain WC changed to 18
+  ...
+  [ERRO] Arm1: Domain WC changed to 0
+  [WARN] Arm1: Domain state changed to 0
+  ```
+- 或者：
+  ```
+  [WARN] rt_task_wait_period error: -110, error count: 395
+  ```
+
+**根本原因**：
+- CPU 实时任务超时（-110 = ETIMEDOUT）
+- EtherCAT 通信失败（Domain Working Counter 从 24 降到 0）
+- 通常由视频实时编码 + 相机捕获 + 数据写入同时运行导致 CPU 过载
+
+**解决方案**：
+
+1. **禁用实时视频编码**（最有效）：
+   ```bash
+   --dataset.streaming_encoding=false
+   ```
+   录制完成后手动编码：
+   ```bash
+   cd data/your_dataset/videos
+   ffmpeg -i episode_0.raw -c:v libx264 episode_0.mp4
+   ```
+
+2. **降低相机分辨率**：
+   ```bash
+   --robot.cameras="{cam: {type: opencv, width: 320, height: 240, fps: 30}}"
+   ```
+
+3. **减少对齐频率**：
+   - 每个 episode 只对齐一次
+   - 避免频繁按键触发重新对齐
+
+4. **检查网线质量**：
+   ```bash
+   ethtool -S eth0 | grep -E "error|drop|crc"
+   ```
+   如果有 CRC 错误，更换网线
+
+5. **提高实时任务优先级**（控制器端）：
+   ```bash
+   chrt -f 99 -p $(pidof robot_controller)
+   ```
+
+### Q8: 如何启用力反馈数据采集？
+
+**命令行参数**：
+```bash
+--robot.use_force_feedback=true \
+--robot.force_feedback_types='["joint_vel", "joint_torque", "cart_force"]'
+```
+
+**验证**：
+```python
+from lerobot.datasets import LeRobotDataset
+dataset = LeRobotDataset("your_username/your_dataset")
+print(dataset.meta.observation_features)
+# 应包含 joint_1.vel, joint_1.torque, cart_force.fx 等字段
+```
+
+**注意**：
+- 力反馈数据会增加数据集大小（约 4× 原始大小）
+- 默认配置只记录位置，保持向后兼容
 
 ---
 
@@ -652,6 +837,15 @@ print(leader.action_features)  # 应包含 'left_gripper.pos'
 --robot.type=marvin
 --robot.ip=192.168.1.190
 --robot.use_arm=AB                    # A, B, 或 AB
+--robot.control_mode=impedance        # "position" 或 "impedance"
+--robot.vel_ratio=10                  # 速度限制百分比 (1-100)
+--robot.acc_ratio=10                  # 加速度限制百分比 (1-100)
+
+# 阻抗控制参数（仅当 control_mode="impedance" 时有效）
+--robot.impedance_k='[5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0]'  # 刚度 (Nm/deg)
+--robot.impedance_d='[0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5]'  # 阻尼 (Nm/(deg/s))
+
+# 夹爪配置
 --robot.use_gripper=true
 --robot.left_gripper_id=0x01
 --robot.left_gripper_master_id=0x11
@@ -659,6 +853,25 @@ print(leader.action_features)  # 应包含 'left_gripper.pos'
 --robot.right_gripper_master_id=0x12
 --robot.gripper_open_pos=-0.5         # 弧度
 --robot.gripper_close_pos=0.5         # 弧度
+
+# 工具重力补偿参数
+--robot.enable_gravity_compensation=true
+--robot.tool_mass_a=0.7               # A臂工具质量 (kg)
+--robot.tool_mass_b=1.1               # B臂工具质量 (kg)
+--robot.tool_com_a='[0.0, 0.0, 50.0]'  # A臂工具质心 (mm, X/Y/Z)
+--robot.tool_com_b='[0.0, 0.0, 50.0]'  # B臂工具质心 (mm, X/Y/Z)
+
+# 力反馈配置
+--robot.use_force_feedback=true       # 启用力反馈数据采集
+--robot.force_feedback_types='["joint_vel", "joint_torque", "cart_force", "joint_force"]'
+# 可选类型：
+# - "joint_vel": 关节速度 (deg/s)
+# - "joint_torque": 关节传感器力矩 (Nm)
+# - "joint_force": 关节空间外力 (Nm)
+# - "cart_force": 末端笛卡尔空间力 (Fx, Fy, Fz, Mx, My, Mz)
+
+# 其他
+--robot.disable_torque_on_disconnect=true  # 断开时是否下电
 ```
 
 ### Teleop配置
@@ -704,26 +917,39 @@ Marvin集成已完全支持LeRobot的标准工作流：
 | ✅ 模型推理 | 完成 |
 | ✅ SDK子进程隔离 | 完成 |
 | ✅ 连接池管理 | 完成 |
+| ✅ 力反馈数据采集 | 完成 |
+| ✅ 工具重力补偿 | 完成 |
 
 **开始使用**：参考[快速开始](#快速开始)章节！
 
 如有问题，请提issue或查看详细日志。🚀
 
+---
 
-遥操作模式（数据采集）
+## 补充说明
 
-A臂（Leader，用户拖动） → Action（示教动作）
-B臂（Follower，跟随执行） → Observation（机器人状态）
+### 数据记录逻辑
 
-数据集记录：
-- observation.state = B臂位置（8个值）
-- action = A臂位置（8个值）
-推理模式
+**遥操作模式（数据采集）**：
+- A臂（Leader，用户拖动） → Action（示教动作）
+- B臂（Follower，跟随执行） → Observation（机器人状态）
 
-Policy输出 → Action（预测动作）
-B臂执行 → Observation（机器人状态）
+**数据集记录**：
+- `observation.state` = B臂位置（8个值，默认配置）
+- `action` = A臂位置（8个值）
 
-数据流：
-- observation.state = B臂当前位置
-- policy(obs) → action（预测的B臂目标）
-- robot.send_action(action) → 控制B臂移动
+**推理模式**：
+- Policy输出 → Action（预测动作）
+- B臂执行 → Observation（机器人状态）
+
+**数据流**：
+- `observation.state` = B臂当前位置
+- `policy(obs)` → `action`（预测的B臂目标）
+- `robot.send_action(action)` → 控制B臂移动
+
+### 重要提示
+
+1. **只记录 B 臂数据** — A 臂仅用于遥操作示教，不记录到数据集
+2. **默认只记录位置** — 速度、力矩等需要启用 `use_force_feedback=true`
+3. **禁用实时编码** — 录制时务必使用 `--dataset.streaming_encoding=false` 避免 CPU 过载
+4. **控制频率 30Hz** — 数据采集和推理都运行在 30Hz（`dataset.fps=30`）
