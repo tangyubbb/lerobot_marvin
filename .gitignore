@@ -26,7 +26,12 @@ using.txt
 using.zip
 using101.txt
 camera_set.txt
-
+scripts/convert_force_feedback_pure_offline.py
+scripts/PURE_OFFLINE_GUIDE.md
+scripts/run_offline_conversion.sh
+scripts/verify_conversion.py
+CONVERSION_REPORT.md
+using_marvin.txt
 # Virtual environments
 .env
 .venv
