@@ -79,11 +79,67 @@ def hw_to_dataset_features(
         }
 
     if joint_fts and prefix == OBS_STR:
-        features[f"{prefix}.state"] = {
-            "dtype": "float32",
-            "shape": (len(joint_fts),),
-            "names": list(joint_fts),
-        }
+        # Define force feedback field patterns
+        force_feedback_patterns = [".vel", ".torque", ".force"]
+        force_feedback_cart_patterns = ["cart_force."]
+
+        # Separate state features (joint positions + gripper) from force feedback
+        state_fts = {}
+        force_fts = {}
+
+        for key, ftype in joint_fts.items():
+            # Check if this is a force feedback field
+            is_force = any(pattern in key for pattern in force_feedback_patterns) or \
+                       any(key.startswith(pattern) for pattern in force_feedback_cart_patterns)
+
+            if is_force:
+                force_fts[key] = ftype
+            else:
+                state_fts[key] = ftype
+
+        # Create observation.state for joint positions and gripper
+        if state_fts:
+            features[f"{prefix}.state"] = {
+                "dtype": "float32",
+                "shape": (len(state_fts),),
+                "names": list(state_fts),
+            }
+
+        # Create separate observation fields for each force feedback type
+        if force_fts:
+            # Group by force feedback type
+            joint_vel = [k for k in force_fts if ".vel" in k]
+            joint_torque = [k for k in force_fts if ".torque" in k]
+            joint_force = [k for k in force_fts if ".force" in k]
+            cart_force = [k for k in force_fts if k.startswith("cart_force.")]
+
+            if joint_vel:
+                features[f"{prefix}.joint_vel"] = {
+                    "dtype": "float32",
+                    "shape": (len(joint_vel),),
+                    "names": joint_vel,
+                }
+
+            if joint_torque:
+                features[f"{prefix}.joint_torque"] = {
+                    "dtype": "float32",
+                    "shape": (len(joint_torque),),
+                    "names": joint_torque,
+                }
+
+            if joint_force:
+                features[f"{prefix}.joint_force"] = {
+                    "dtype": "float32",
+                    "shape": (len(joint_force),),
+                    "names": joint_force,
+                }
+
+            if cart_force:
+                features[f"{prefix}.cart_force"] = {
+                    "dtype": "float32",
+                    "shape": (len(cart_force),),
+                    "names": cart_force,
+                }
 
     for key, shape in cam_fts.items():
         features[f"{prefix}.images.{key}"] = {

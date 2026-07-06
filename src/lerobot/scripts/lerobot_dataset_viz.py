@@ -163,34 +163,28 @@ def visualize_dataset(
                 for dim_idx, val in enumerate(batch[OBS_STATE][i]):
                     rr.log(f"state/{dim_idx}", rr.Scalars(val.item()))
 
-            # ========== Display force/torque sensor data (if available) ==========
-            # Joint velocities
-            joint_vel_keys = [k for k in batch.keys() if k.startswith("observation.joint_") and k.endswith(".vel")]
-            if joint_vel_keys:
-                for key in joint_vel_keys:
-                    joint_id = key.split(".")[1].split("_")[1]  # Extract joint number from "observation.joint_X.vel"
-                    rr.log(f"force_feedback/joint_velocity/joint_{joint_id}", rr.Scalars(batch[key][i].item()))
+            # ========== Display force/torque sensor data (NEW FORMAT - separate features) ==========
+            # Handle new format: observation.joint_vel (7-dim vector)
+            if "observation.joint_vel" in batch:
+                for joint_idx, val in enumerate(batch["observation.joint_vel"][i]):
+                    rr.log(f"force_feedback/joint_velocity/joint_{joint_idx+1}", rr.Scalars(val.item()))
 
-            # Joint torques
-            joint_torque_keys = [k for k in batch.keys() if k.startswith("observation.joint_") and k.endswith(".torque")]
-            if joint_torque_keys:
-                for key in joint_torque_keys:
-                    joint_id = key.split(".")[1].split("_")[1]
-                    rr.log(f"force_feedback/joint_torque/joint_{joint_id}", rr.Scalars(batch[key][i].item()))
+            # Handle new format: observation.joint_torque (7-dim vector)
+            if "observation.joint_torque" in batch:
+                for joint_idx, val in enumerate(batch["observation.joint_torque"][i]):
+                    rr.log(f"force_feedback/joint_torque/joint_{joint_idx+1}", rr.Scalars(val.item()))
 
-            # Joint external forces
-            joint_force_keys = [k for k in batch.keys() if k.startswith("observation.joint_") and k.endswith(".force")]
-            if joint_force_keys:
-                for key in joint_force_keys:
-                    joint_id = key.split(".")[1].split("_")[1]
-                    rr.log(f"force_feedback/joint_force/joint_{joint_id}", rr.Scalars(batch[key][i].item()))
+            # Handle new format: observation.joint_force (7-dim vector)
+            if "observation.joint_force" in batch:
+                for joint_idx, val in enumerate(batch["observation.joint_force"][i]):
+                    rr.log(f"force_feedback/joint_force/joint_{joint_idx+1}", rr.Scalars(val.item()))
 
-            # End-effector Cartesian forces
-            cart_force_keys = [k for k in batch.keys() if k.startswith("observation.cart_force.")]
-            if cart_force_keys:
-                for key in cart_force_keys:
-                    component = key.split(".")[-1]  # fx, fy, fz, mx, my, mz
-                    rr.log(f"force_feedback/cart_force/{component}", rr.Scalars(batch[key][i].item()))
+            # Handle new format: observation.cart_force (6-dim vector: fx, fy, fz, mx, my, mz)
+            if "observation.cart_force" in batch:
+                cart_force_names = ["fx", "fy", "fz", "mx", "my", "mz"]
+                for comp_idx, val in enumerate(batch["observation.cart_force"][i]):
+                    component_name = cart_force_names[comp_idx] if comp_idx < len(cart_force_names) else f"dim_{comp_idx}"
+                    rr.log(f"force_feedback/cart_force/{component_name}", rr.Scalars(val.item()))
 
             if DONE in batch:
                 rr.log(DONE, rr.Scalars(batch[DONE][i].item()))
@@ -220,6 +214,12 @@ def visualize_dataset(
 
 
 def main():
+    import os
+
+    # Force offline mode for local datasets
+    os.environ['HF_HUB_OFFLINE'] = '1'
+    os.environ['TRANSFORMERS_OFFLINE'] = '1'
+
     parser = argparse.ArgumentParser()
 
     parser.add_argument(
