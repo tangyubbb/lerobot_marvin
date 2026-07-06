@@ -43,6 +43,7 @@ venv.bak/
 .agents
 .claude
 .codex
+scripts/verify_conversion_difference.py
 
 # IDEs
 .vscode/
