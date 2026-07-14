@@ -492,11 +492,52 @@ class MarvinLeader(Teleoperator):
             logger.info(f"Enabled CYR teleoperation mode: {ret}")
             time.sleep(cyr_on_wait_time)
 
-            # 验证 CYR 已启用
-            data = self._sdk.subscribe()
-            a_state = data['states'][0]['cur_state']
-            b_state = data['states'][1]['cur_state']
-            logger.info(f"After CYR on: armA state={a_state}, armB state={b_state}")
+            # 验证 CYR 已启用并检查跟随同步
+            logger.info("Verifying CYR synchronization (2s position tracking)...")
+            sync_failed = False
+            max_sync_error = 0.0
+
+            for check_idx in range(20):  # 20 checks over 2 seconds
+                data = self._sdk.subscribe()
+                a_state = data['states'][0]['cur_state']
+                b_state = data['states'][1]['cur_state']
+
+                a_pos = data['outputs'][_ARM_OUT_IDX['A']]['fb_joint_pos']
+                b_pos = data['outputs'][_ARM_OUT_IDX['B']]['fb_joint_pos']
+
+                # Calculate position error between A and B arms
+                position_errors = [abs(a - b) for a, b in zip(a_pos, b_pos)]
+                max_error_this_frame = max(position_errors)
+                max_sync_error = max(max_sync_error, max_error_this_frame)
+
+                if check_idx == 0:
+                    logger.info(f"CYR state verification: armA state={a_state}, armB state={b_state}")
+
+                # If position error exceeds threshold, CYR synchronization has failed
+                if max_error_this_frame > 5.0:  # 5 degrees threshold
+                    logger.error(
+                        f"CYR sync failed at check {check_idx}: max error = {max_error_this_frame:.2f}° "
+                        f"(A: {[f'{p:.2f}' for p in a_pos]}, B: {[f'{p:.2f}' for p in b_pos]})"
+                    )
+                    sync_failed = True
+                    break
+
+                time.sleep(0.1)
+
+            if sync_failed:
+                logger.error("CYR synchronization failed! Disabling arms and exiting...")
+                # Emergency shutdown: disable both arms
+                self._sdk.clear_set()
+                self._sdk.set_state(arm='A', state=0)
+                self._sdk.set_state(arm='B', state=0)
+                self._sdk.send_cmd()
+                time.sleep(0.3)
+                raise ConnectionError(
+                    f"CYR synchronization failed: B arm not following A arm correctly "
+                    f"(max error: {max_sync_error:.2f}°). Check mechanical connection and CYR parameters."
+                )
+
+            logger.info(f"CYR synchronization verified: max error over 2s = {max_sync_error:.2f}°")
 
         result = {
             "success": True,
