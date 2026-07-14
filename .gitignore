@@ -43,7 +43,11 @@ venv.bak/
 .agents
 .claude
 .codex
-
+train.txt
+using_marvin.txt
+scripts/verify_conversion_difference.py
+LEROBOT_ROLLOUT_ANALYSIS.md
+LEROBOT_RECORD_CALL_CHAIN.md
 # IDEs
 .vscode/
 .idea/

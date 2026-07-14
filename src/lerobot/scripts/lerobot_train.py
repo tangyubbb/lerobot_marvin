@@ -44,6 +44,7 @@ from lerobot.common.wandb_utils import WandBLogger
 from lerobot.configs import parser
 from lerobot.configs.train import TrainPipelineConfig
 from lerobot.datasets import EpisodeAwareSampler, make_dataset
+from lerobot.datasets.training_with_labels import create_keyframe_repeat_sampler
 from lerobot.envs import close_envs, make_env, make_env_pre_post_processors
 from lerobot.optim.factory import make_optimizer_and_scheduler
 from lerobot.policies import PreTrainedPolicy, make_policy, make_pre_post_processors
@@ -377,6 +378,23 @@ def train(cfg: TrainPipelineConfig, accelerator: "Accelerator | None" = None):
     else:
         shuffle = True
         sampler = None
+
+    keyframe_sampler = None
+    if not cfg.dataset.streaming:
+        keyframe_sampler = create_keyframe_repeat_sampler(
+            dataset,
+            label_name="is_keyframe",
+            base_sampler=sampler,
+            shuffle=True,
+        )
+    if keyframe_sampler is not None:
+        sampler = keyframe_sampler
+        shuffle = False
+        logging.info(
+            "Enabled is_keyframe repeat sampling: %d keyframes, %d samples per epoch",
+            len(keyframe_sampler.keyframe_indices),
+            len(keyframe_sampler),
+        )
 
     dataloader = torch.utils.data.DataLoader(
         dataset,

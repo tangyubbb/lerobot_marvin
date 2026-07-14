@@ -120,14 +120,15 @@ lerobot-record \
 /home/zzx23457/act_train_data/peg_optical_module_0623
 
 lerobot-train \
-  --dataset.repo_id=hukewei/peg_optical_module_0623 \
-  --dataset.root=/home/zzx23457/act_train_data/peg_optical_module_0623 \
+  --dataset.repo_id=hhw/peg_optical_module_0707 \
+  --dataset.root=/home/marvin/hhw/peg_optical_module_0707 \
+  --dataset.repo_id=hhw/peg_optical_module_0707 \
   --policy.type=act \
-  --output_dir=/home/zzx23457/act_train_data/outputs/act_peg_optical_module_0623 \
-  --job_name=act_peg_optical_module_0623 \
+  --output_dir=/home/marvin/hhw/peg_optical_module_0707/model \
+  --job_name=peg_optical_module_0707 \
   --policy.device=cuda \
   --wandb.enable=false \
-  --policy.repo_id=hukewei/act_peg_optical_module_0623 \
+  --policy.repo_id=hhw/peg_optical_module_0707 \
   --batch_size=2 \
   --policy.use_amp=true \
   --steps=200000

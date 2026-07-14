@@ -31,7 +31,7 @@ logger = logging.getLogger(__name__)
 class ArmController:
     """机械臂控制器类"""
 
-    def __init__(self, robot_ip='192.168.1.190'):
+    def __init__(self, robot_ip='192.168.16.190'):
         self.robot = Marvin_Robot()
         self.dcss = DCSS()
         self.robot_ip = robot_ip
@@ -44,13 +44,16 @@ class ArmController:
         """连接机器人"""
         logger.info(f"正在连接机器人 {self.robot_ip}...")
         init = self.robot.connect(self.robot_ip)
-
+        # while(1):
+        #     result=self.robot.get_servo_error_code('B')  # 获取 B 臂伺服错误码
+        #     print("="*60)
+        #     print(f"当前 B 臂伺服错误码: {result}")
         if init == 0:
             logger.error('连接失败! 端口可能被占用')
             return False
 
         # 验证连接
-        time.sleep(1.0)  # 增加等待时间让共享内存数据同步
+        time.sleep(0.5)
         motion_tag = 0
         frame_update = None
 
@@ -61,14 +64,14 @@ class ArmController:
             if frame_serial != 0 and frame_update != frame_serial:
                 motion_tag += 1
                 frame_update = frame_serial
-            time.sleep(0.2)  # 增加检查间隔
+            time.sleep(0.1)
 
         if motion_tag > 0:
             logger.info('✓ 机器人连接成功!')
             self.connected = True
             # 开启日志
-            self.robot.log_switch('0')
-            self.robot.local_log_switch('0')
+            self.robot.log_switch('1')
+            self.robot.local_log_switch('1')
 
             return True
         else:
@@ -929,6 +932,71 @@ class ArmController:
 
         return True
 
+    def release_brake(self, arm='A', duration=30):
+        """强制松闸
+
+        Args:
+            arm: 'A' 或 'B'
+            duration: 松闸持续时间（秒），默认30秒
+
+        用途：应对手臂飞车或撞机急停后扭到一团无法上使能的情况
+        """
+        if not self.connected:
+            logger.error("未连接到机器人")
+            return False
+
+        logger.info(f"\n{'='*50}")
+        logger.info(f"⚠ 强制松闸 {arm} 臂")
+        logger.info(f"{'='*50}")
+        logger.warning("⚠ 警告: 松闸后机械臂会失去制动力，请做好支撑准备！")
+        logger.info(f"松闸时间: {duration}秒")
+
+        # 设置制动器参数
+        brake_param = 'BRAK0' if arm == 'A' else 'BRAK1'
+
+        logger.info(f"正在松闸 {arm} 臂...")
+        self.robot.set_param('int', brake_param, 2)  # 2 = 强制松闸
+
+        logger.info(f"✓ {arm} 臂已松闸")
+        logger.info(f"⚠ 请在{duration}秒内调整机械臂姿态")
+        logger.info("⚠ 调整完毕后请立即执行抱闸操作！")
+
+        # 倒计时提示
+        for remaining in range(duration, 0, -5):
+            if remaining <= duration:
+                logger.info(f"  剩余时间: {remaining}秒...")
+                time.sleep(5 if remaining > 5 else remaining)
+
+        logger.warning(f"⚠ {duration}秒已到，请立即执行抱闸操作！")
+        return True
+
+    def apply_brake(self, arm='A'):
+        """强制抱闸
+
+        Args:
+            arm: 'A' 或 'B'
+
+        用途：松闸调整完毕后恢复制动
+        """
+        if not self.connected:
+            logger.error("未连接到机器人")
+            return False
+
+        logger.info(f"\n{'='*50}")
+        logger.info(f"强制抱闸 {arm} 臂")
+        logger.info(f"{'='*50}")
+
+        # 设置制动器参数
+        brake_param = 'BRAK0' if arm == 'A' else 'BRAK1'
+
+        logger.info(f"正在抱闸 {arm} 臂...")
+        self.robot.set_param('int', brake_param, 1)  # 1 = 强制抱闸
+        time.sleep(1)
+
+        logger.info(f"✓ {arm} 臂已抱闸")
+        logger.info("✓ 机械臂已恢复制动，可以切换到其他控制模式")
+        return True
+
     def disconnect(self):
         """断开连接"""
         if self.connected:
@@ -964,7 +1032,7 @@ def main():
     try:
         while True:
             print("\n" + "-"*60)
-            print("0609")
+            print("0629 版本")
             print("请选择操作:")
             print("  1. 检查并清除A臂错误")
             print("  2. 检查并清除B臂错误")
@@ -988,10 +1056,14 @@ def main():
             print(" 20. 下使能双夹爪")
             print(" 21. 移动左夹爪(A臂)到指定角度")
             print(" 22. 移动右夹爪(B臂)到指定角度")
+            print(" 23. ⚠ A臂强制松闸（应急调整用）")
+            print(" 24. ⚠ A臂强制抱闸")
+            print(" 25. ⚠ B臂强制松闸（应急调整用）")
+            print(" 26. ⚠ B臂强制抱闸")
             print("  0. 退出程序")
             print("-"*60)
 
-            choice = input("请输入选项 (0-22): ").strip()
+            choice = input("请输入选项 (0-26): ").strip()
 
             if choice == '0':
                 break
@@ -1180,6 +1252,38 @@ def main():
                         controller.move_gripper_to_position('right', target, stiffness, damping)
                     except ValueError:
                         print("输入格式错误，请输入数字")
+            elif choice == '23':
+                print("\n⚠ 警告: 即将对A臂执行强制松闸操作")
+                print("⚠ 松闸后机械臂会失去制动力，请确保做好支撑准备！")
+                confirm = input("确认执行? (yes/no): ").strip().lower()
+                if confirm == 'yes':
+                    duration = int(input("松闸持续时间（秒，默认30）: ") or "30")
+                    controller.release_brake('A', duration)
+                else:
+                    print("已取消操作")
+            elif choice == '24':
+                print("\n对A臂执行强制抱闸操作")
+                confirm = input("确认执行? (yes/no): ").strip().lower()
+                if confirm == 'yes':
+                    controller.apply_brake('A')
+                else:
+                    print("已取消操作")
+            elif choice == '25':
+                print("\n⚠ 警告: 即将对B臂执行强制松闸操作")
+                print("⚠ 松闸后机械臂会失去制动力，请确保做好支撑准备！")
+                confirm = input("确认执行? (yes/no): ").strip().lower()
+                if confirm == 'yes':
+                    duration = int(input("松闸持续时间（秒，默认30）: ") or "30")
+                    controller.release_brake('B', duration)
+                else:
+                    print("已取消操作")
+            elif choice == '26':
+                print("\n对B臂执行强制抱闸操作")
+                confirm = input("确认执行? (yes/no): ").strip().lower()
+                if confirm == 'yes':
+                    controller.apply_brake('B')
+                else:
+                    print("已取消操作")
             else:
                 print("无效选项，请重新输入")
 
@@ -1196,3 +1300,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+

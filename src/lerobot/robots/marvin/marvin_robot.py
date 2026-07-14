@@ -156,6 +156,9 @@ class MarvinRobot(Robot):
                 self._verify_connection()
         else:
             logger.info(f"Reusing existing SDK connection to {self.config.ip}")
+            # Verify the reused connection is still alive
+            with self._sdk_lock:
+                self._verify_connection()
 
         # If SDK already connected, the robot is already configured by the leader
         # (in teleoperation mode). Don't reconfigure, just use the existing setup.
@@ -169,11 +172,16 @@ class MarvinRobot(Robot):
 
 
         if self.config.use_gripper:
-            self._init_gripper()
+            try:
+                self._init_gripper()
+            except Exception as e:
+                logger.error(f"Gripper initialization failed: {e}")
+                raise ConnectionError(f"Gripper init failed: {e}") from e
 
         for cam in self.cameras.values():
             cam.connect()
 
+        self._health_check()
         self._connected = True
 
         # Populate shared data pool for teleoperation alignment
@@ -196,6 +204,37 @@ class MarvinRobot(Robot):
                 return
             time.sleep(0.1)
         raise ConnectionError("Marvin: frames not updating — check network connection.")
+
+    def _health_check(self) -> None:
+        """Final health check before marking as connected."""
+        with self._sdk_lock:
+            # 1. Verify SDK communication
+            data = self._sdk.subscribe()
+            if data["outputs"][0]["frame_serial"] == 0:
+                raise ConnectionError("SDK not receiving frames")
+
+            # 2. Verify joint positions are readable and non-zero
+            for arm in self._arms:
+                pos = data["outputs"][_ARM_OUT_IDX[arm]]["fb_joint_pos"]
+                if all(abs(p) < 1e-6 for p in pos):
+                    logger.warning(f"Arm {arm} reporting near-zero position (may be at zero pose)")
+
+            # 3. Verify gripper (if enabled)
+            if self.config.use_gripper and self._gripper is not None:
+                try:
+                    self._gripper.recv()
+                    # Try to read positions to ensure EtherCAT is working
+                    self._motor_left.getPosition()
+                    self._motor_right.getPosition()
+                except Exception as e:
+                    raise ConnectionError(f"Gripper not responding: {e}") from e
+
+            # 4. Verify cameras (if enabled)
+            for cam_name, cam in self.cameras.items():
+                if not cam.is_connected:
+                    raise ConnectionError(f"Camera {cam_name} not connected")
+
+        logger.info("Health check passed: SDK, arms, gripper, and cameras all responsive")
 
     def _configure_arm(self, arm: str) -> None:
         # Must be called with lock held
@@ -261,11 +300,13 @@ class MarvinRobot(Robot):
         self._gripper.add_to_ch(self._motor_right, "right")
         for motor in (self._motor_left, self._motor_right):
             self._gripper.disable(motor)
-        time.sleep(0.5)
+            time.sleep(0.1)
+        time.sleep(0.1)
         for motor in (self._motor_left, self._motor_right):
             self._gripper.switchControlMode(motor, Control_Type.MIT)
             self._gripper.enable(motor)
-        time.sleep(0.5)
+            time.sleep(0.1)
+        time.sleep(0.1)
 
     @property
     def is_calibrated(self) -> bool:
@@ -357,8 +398,8 @@ class MarvinRobot(Robot):
 
         self._gripper_update_counter += 1
 
-        # CRITICAL: Gripper control at 30Hz causes EtherCAT communication loss.
-        # Reduce gripper update rate to every 5 frames (~6Hz at 30fps control loop)
+        # CRITICAL: Gripper control at high frequency causes EtherCAT communication loss.
+        # Reduce gripper update rate to every 5 frames (~6Hz at 30fps, ~4Hz at 20fps)
         # to prevent CPU starvation and maintain EtherCAT real-time performance.
         gripper_update_divisor = 1
 
@@ -367,10 +408,21 @@ class MarvinRobot(Robot):
                 if already_connected:
                     # ============ Teleoperation mode ============
                     # Left gripper (A arm leader) is draggable, right gripper (B arm follower) follows left
+
+                    # First-time initialization: set both grippers to closed position
+                    if not hasattr(self, '_gripper_teleop_initialized'):
+                        logger.info("First teleoperation: initializing both grippers to closed position (0.0)")
+                        self._gripper.recv()
+                        self._gripper.controlMIT(self._motor_left, 8.0, 0.20, 1.0, 0.0, 0.0)
+                        self._gripper.recv()
+                        self._gripper.controlMIT(self._motor_right, 8.0, 0.20, 1.0, 0.0, 0.0)
+                        self._gripper_teleop_initialized = True
+                        return action
+
                     # Read current positions from hardware (real-time dragging)
                     m1_pos = self._motor_left.getPosition()
                     m2_target = m1_pos + 0.1  # Right follows left with offset
-
+                    self._gripper.recv()  # Update motor positions from hardware
                     # M1: Low stiffness (easy to drag by hand)
                     self._gripper.controlMIT(
                         self._motor_left,
@@ -382,9 +434,10 @@ class MarvinRobot(Robot):
                     )
 
                     # M2: High stiffness (precise following)
+                    self._gripper.recv()  # Update motor positions from hardware
                     self._gripper.controlMIT(
                         self._motor_right,
-                        8.0,       # High stiffness
+                        3.0,       # High stiffness
                         0.20,      # High damping
                         m2_target, # Follow M1
                         0.0,
@@ -397,9 +450,10 @@ class MarvinRobot(Robot):
 
                     if gripper_target is not None:
                         # Only control B arm (right) gripper in policy mode
+                        self._gripper.recv()  # Update motor positions from hardware
                         self._gripper.controlMIT(
                             self._motor_right,
-                            8.0,
+                            3.0,
                             0.20,
                             gripper_target,
                             0.0,
@@ -412,6 +466,12 @@ class MarvinRobot(Robot):
                 self._sdk.clear_set()
                 # Only control B arm
                 joints = [action[f"joint_{i+1}.pos"] for i in range(7)]
+
+                # DEBUG: Print what we're sending to SDK
+                if not hasattr(self, '_debug_send_printed'):
+                    print(f"[DEBUG] Sending to SDK (from dataset): {[f'{j:.6f}' for j in joints]}")
+                    self._debug_send_printed = True
+
                 self._sdk.set_joint_cmd_pose(arm='B', joints=joints)
                 self._sdk.send_cmd()
         # else:
