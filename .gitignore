@@ -77,8 +77,8 @@ tests/outputs/
 tests/artifacts/
 
 # Datasets and data
-data/
-datasets/
+# data/
+# datasets/
 *.hdf5
 *.h5
 *.zarr
